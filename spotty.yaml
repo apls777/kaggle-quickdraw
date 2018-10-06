@@ -1,0 +1,25 @@
+project:
+  name: QuickDraw
+  remoteDir: /workspace/project
+  syncFilters:
+    - exclude:
+      - .git/*
+      - .idea/*
+      - '*/__pycache__/*'
+      - data/*
+      - training/*
+instance:
+  region: us-east-2
+  instanceType: p2.xlarge
+  volumes:
+    - name: QuickDraw
+      directory: /workspace
+      size: 55
+      deletionPolicy: retain
+  docker:
+    file: docker/Dockerfile
+    dataRoot: /workspace/docker
+  ports: [6006, 8888]
+scripts:
+  tensorboard: |
+    tensorboard --logdir /workspace/project/training/cnn
