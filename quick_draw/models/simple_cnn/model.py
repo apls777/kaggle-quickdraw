@@ -1,8 +1,5 @@
-import json
 import logging
 import tensorflow as tf
-import os
-from quick_draw.tfrecords import decode_bitmap_example
 
 
 logging.getLogger().setLevel(logging.DEBUG)
@@ -86,71 +83,3 @@ def model_fn(features, labels, mode, params):
 
     return tf.estimator.EstimatorSpec(
         mode=mode, loss=loss, eval_metric_ops=eval_metric_ops)
-
-
-def _normalize(image, label):
-    """Convert `image` from [0, 255] -> [0, 1] floats."""
-    image = tf.cast(image, tf.float32) / 255
-    return image, label
-
-
-def input_fn(file_paths, batch_size, epochs=None):
-    dataset = tf.data.Dataset.from_tensor_slices(file_paths)
-    dataset = tf.data.TFRecordDataset(dataset)
-    dataset = dataset.map(decode_bitmap_example)
-    dataset = dataset.map(_normalize)
-    dataset = dataset.shuffle(10000)
-    dataset = dataset.repeat(epochs)
-    dataset = dataset.batch(batch_size)
-
-    iterator = dataset.make_one_shot_iterator()
-
-    return iterator.get_next()
-
-
-def main():
-    base_path = '../data/tfrecords'
-
-    # read the labels
-    with open(os.path.join(base_path, 'labels.json')) as f:
-        labels_map = json.load(f)
-
-    # build the model
-    model_dir = '../training/cnn'
-
-    eval_files_ids = [1]
-    train_files_ids = range(2, 1001)
-
-    eval_files = [os.path.join(base_path, 'file_%d.tfrecords' % i) for i in eval_files_ids]
-    train_files = [os.path.join(base_path, 'file_%d.tfrecords' % i) for i in train_files_ids]
-
-    logging.info('Number of train files: %d' % len(train_files))
-    logging.info('Number of eval files: %d' % len(eval_files))
-
-    # create an estimator
-    estimator = tf.estimator.Estimator(
-            model_fn=model_fn,
-            config=tf.estimator.RunConfig(
-                    model_dir=model_dir,
-                    save_checkpoints_secs=300,
-                    save_summary_steps=50,
-            ),
-            params=tf.contrib.training.HParams(
-                num_classes=len(labels_map),
-                learning_rate=0.001,
-            ),
-    )
-
-    # train the model
-    batch_size = 128
-    logging.info('Batch size: %d' % batch_size)
-
-    evaluator = tf.contrib.estimator.InMemoryEvaluatorHook(estimator,
-                                                           input_fn=lambda: input_fn(eval_files, batch_size, 1),
-                                                           every_n_iter=10000)
-    estimator.train(input_fn=lambda: input_fn(train_files, batch_size),
-                    hooks=[evaluator])
-
-
-if __name__ == '__main__':
-    main()

@@ -4,7 +4,7 @@ import os
 from collections import OrderedDict
 import tensorflow as tf
 import numpy as np
-from quick_draw.tfrecords import encode_bitmap_example
+from quick_draw.tfrecords.utils import encode_bitmap_example
 from quick_draw.utils import shuffle_arrays
 
 
@@ -93,11 +93,12 @@ def create_tfrecord_files(bitmaps_path, output_path, num_files, delete_bitmaps=F
 
 
 def main():
-    base_path = '../test_data/bitmaps'
-    output_path = '../test_data/tfrecords'
-    num_files = 10
+    base_path = '../data/bitmaps'
+    output_path = '../data/tfrecords'
+    num_files = 100
     create_tfrecord_files(base_path, output_path, num_files)
 
 
+# TODO: argparse
 if __name__ == '__main__':
     main()

@@ -22,4 +22,6 @@ instance:
   ports: [6006, 8888]
 scripts:
   tensorboard: |
-    tensorboard --logdir /workspace/project/training/cnn
+    tensorboard --logdir /workspace/project/training
+  jupyter: |
+    jupyter notebook --allow-root --notebook-dir=/workspace/project

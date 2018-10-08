@@ -1,0 +1,11 @@
+{
+  "input_dir": "data/tfrecords",
+  "model_dir": "training/simple_cnn",
+  "batch_size": 4,
+  "learning_rate": 0.001,
+  "eval_files": [1, 1],
+  "train_files": [2, 100],
+  "save_checkpoints_secs": 300,
+  "save_summary_steps": 100,
+  "eval_every_n_iter": 10000
+}

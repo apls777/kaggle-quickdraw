@@ -7,6 +7,12 @@ RUN echo "deb http://packages.cloud.google.com/apt cloud-sdk-`lsb_release -c -s`
         | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list \
     && curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add - \
     && apt-get update \
-    && apt-get install -y google-cloud-sdk python2.7
+    && apt-get install -y google-cloud-sdk python2.7 vim
 
 ENV CLOUDSDK_PYTHON="/usr/bin/python2.7"
+
+# install vim
+RUN apt-get install vim
+
+ENV PYTHONPATH="/workspace/project"
+ENV QUICK_DRAW_ENV="aws"
