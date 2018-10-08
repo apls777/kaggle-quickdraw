@@ -1,16 +1,18 @@
 import json
 import logging
 import os
+from importlib import import_module
 import tensorflow as tf
 from quick_draw.models.input import iterator_get_next
 from quick_draw.models.params import load_model_params
 from quick_draw.utils import project_dir
 
+
 logging.getLogger().setLevel(logging.DEBUG)
 tf.logging.set_verbosity(tf.logging.INFO)
 
 
-def train(model_name, model_fn):
+def train(model_name):
     params = load_model_params(model_name)
 
     # read the labels
@@ -38,6 +40,7 @@ def train(model_name, model_fn):
     model_fn_params['num_classes'] = len(labels_map)
 
     # create an estimator
+    model_fn = getattr(import_module('%s.%s.model' % (__package__, model_name)), 'model_fn')
     estimator = tf.estimator.Estimator(
             model_fn=model_fn,
             config=tf.estimator.RunConfig(
