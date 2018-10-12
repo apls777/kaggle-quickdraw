@@ -1,3 +1,4 @@
+import random
 import tensorflow as tf
 from quick_draw.tfrecords.utils import decode_bitmap_example
 
@@ -8,12 +9,18 @@ def _normalize(image, label):
     return image, label
 
 
-def iterator_get_next(file_paths, batch_size, epochs=None):
-    dataset = tf.data.Dataset.from_tensor_slices(file_paths)
-    dataset = tf.data.TFRecordDataset(dataset)
+def iterator_get_next(file_paths, batch_size, epochs=None, shuffle=True):
+    if shuffle:
+        file_paths = list(file_paths)
+        random.shuffle(file_paths)
+
+    dataset = tf.data.TFRecordDataset(file_paths)
     dataset = dataset.map(decode_bitmap_example)
     dataset = dataset.map(_normalize)
-    dataset = dataset.shuffle(10000)
+
+    if shuffle:
+        dataset = dataset.shuffle(10000)
+
     dataset = dataset.repeat(epochs)
     dataset = dataset.batch(batch_size)
 

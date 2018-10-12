@@ -1,7 +1,7 @@
 {
   "input_dir": "data/tfrecords",
-  "model_dir": "training/densenet_test",
-  "batch_size": 4,
+  "model_dir": "training/densenet",
+  "batch_size": 32,
   "learning_rate": 0.001,
   "eval_files": [1, 1],
   "train_files": [2, 100],

@@ -59,3 +59,25 @@ def train(model_name):
     # train the model
     estimator.train(input_fn=lambda: iterator_get_next(train_files, batch_size),
                     hooks=[evaluator])
+
+
+def predict(model_name, labels_map_path, tfrecord_files):
+    params = load_model_params(model_name)
+
+    # read the labels
+    with open(labels_map_path) as f:
+        labels_map = json.load(f)
+
+    model_dir = project_dir(params['model_dir'])
+    batch_size = params['batch_size']
+
+    model_fn_params = params
+    model_fn_params['num_classes'] = len(labels_map)
+
+    # create an estimator
+    model_fn = getattr(import_module('%s.%s.model' % (__package__, model_name)), 'model_fn')
+    estimator = tf.estimator.Estimator(model_fn=model_fn, model_dir=model_dir,
+                                       params=tf.contrib.training.HParams(**model_fn_params))
+
+    # get predictions
+    return estimator.predict(input_fn=lambda: iterator_get_next(tfrecord_files, batch_size, 1, shuffle=False))

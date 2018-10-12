@@ -31,8 +31,8 @@ def model_fn(features, labels, mode, params):
     logits = tf.layers.dense(avg_pool, units=params.num_classes, name='fc')
 
     predictions = {
-        'classes': tf.argmax(input=logits, axis=1),
         'probabilities': tf.nn.softmax(logits, name='softmax_tensor'),
+        'class': tf.argmax(input=logits, axis=1),
     }
 
     # return specification for predictions
