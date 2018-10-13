@@ -8,7 +8,6 @@ project:
       - '*/__pycache__/*'
       - data/*
       - training/*
-      - notebooks/data/*
 instance:
   region: us-east-2
   instanceType: p2.xlarge
