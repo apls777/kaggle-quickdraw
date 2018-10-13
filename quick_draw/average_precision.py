@@ -56,4 +56,16 @@ def mapk(actual, predicted, k=3):
     score : double
             The mean average precision at k over the input lists
     """
-    return np.mean([apk(a,p,k) for a,p in zip(actual, predicted)])
+    return np.mean([apk(a, p, k) for a, p in zip(actual, predicted)])
+
+
+def get_err_scores(actual, predicted, num_labels, k=3):
+    err_scores = [0 for _ in range(num_labels)]
+    for a, p in zip(actual, predicted):
+        err_scores[a[0]] += (1 - apk(a, p, k))
+
+    num_examples = len(actual)
+    sorted_err_scores = sorted([(err_score / num_examples, label_id)
+                                for label_id, err_score in enumerate(err_scores)], key=lambda x: x[0], reverse=True)
+
+    return sorted_err_scores

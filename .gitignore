@@ -4,3 +4,4 @@ dist/
 *.egg-info/
 training/
 data/
+.ipynb_checkpoints
