@@ -3,5 +3,5 @@ build/
 dist/
 *.egg-info/
 training/
-data/
-.ipynb_checkpoints
+/data/
+.ipynb_checkpoints/
