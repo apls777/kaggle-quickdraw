@@ -1,6 +1,9 @@
 import tensorflow as tf
 
 
+SHUFFLE_SEED = 873277663
+
+
 def encode_bitmap_example(bitmap, label_id):
     """Serializes an image and its label."""
     example = tf.train.Example(
