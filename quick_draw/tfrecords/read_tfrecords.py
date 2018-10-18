@@ -1,14 +1,14 @@
 from tensorflow.python.framework.errors_impl import OutOfRangeError
-
 from quick_draw.models.input import iterator_get_next
 import tensorflow as tf
+from quick_draw.utils import project_dir
 
 
-def read_bitmaps(tfrecords_path: str, limit: int = 0):
-    batch_size = 500
-    it = iterator_get_next(tfrecords_path, batch_size, 1, shuffle=False)
+def read_bitmaps(tfrecords_path: str, drawing_dtype, limit: int = 0):
+    batch_size = 32
+    it = iterator_get_next(tfrecords_path, batch_size, epochs=1, shuffle=False, drawing_dtype=drawing_dtype)
 
-    images = []
+    features = {}
     labels = []
     with tf.Session() as sess:
         i = 0
@@ -17,9 +17,14 @@ def read_bitmaps(tfrecords_path: str, limit: int = 0):
                 break
 
             try:
-                images_batch, labels_batch = sess.run(it)
-                images += list(images_batch)
+                features_batch, labels_batch = sess.run(it)
+
                 labels += list(labels_batch)
+
+                for key, value in features_batch.items():
+                    if key not in features:
+                        features[key] = []
+                    features[key] += list(value)
             except OutOfRangeError:
                 break
 
@@ -29,7 +34,18 @@ def read_bitmaps(tfrecords_path: str, limit: int = 0):
                 print(i)
 
     if limit:
-        images = images[:limit]
-        labels = labels[:limit]
+        for key, value in features.items():
+            features[key] = features[key][:limit]
 
-    return list(zip(images, labels))
+    return features, labels
+
+
+def main():
+    features, labels = read_bitmaps(project_dir('data/kaggle_simplified/tfrecords/bitmaps/file_1.tfrecords'),
+                                    drawing_dtype=tf.uint8,
+                                    limit=2)
+    print(features)
+
+
+if __name__ == '__main__':
+    main()

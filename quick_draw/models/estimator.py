@@ -51,13 +51,21 @@ def train(model_name):
             params=tf.contrib.training.HParams(**model_fn_params),
     )
 
+    # dtype to decode TFRecords
+    drawing_dtype = tf.as_dtype(params['tfrecords_drawing_dtype'])
+
     # run evaluation every 10k steps
     evaluator = tf.contrib.estimator.InMemoryEvaluatorHook(estimator,
-                                                           input_fn=lambda: iterator_get_next(eval_files, batch_size, 1),
+                                                           input_fn=lambda: iterator_get_next(eval_files, batch_size,
+                                                                                              epochs=1,
+                                                                                              only_recognized=params['only_recognized'],
+                                                                                              drawing_dtype=drawing_dtype),
                                                            every_n_iter=params['eval_every_n_iter'])
 
     # train the model
-    estimator.train(input_fn=lambda: iterator_get_next(train_files, batch_size),
+    estimator.train(input_fn=lambda: iterator_get_next(train_files, batch_size,
+                                                       only_recognized=params['only_recognized'],
+                                                       drawing_dtype=drawing_dtype),
                     hooks=[evaluator])
 
 
@@ -79,5 +87,9 @@ def predict(model_name, labels_map_path, tfrecord_files):
     estimator = tf.estimator.Estimator(model_fn=model_fn, model_dir=model_dir,
                                        params=tf.contrib.training.HParams(**model_fn_params))
 
+    # dtype to decode TFRecords
+    drawing_dtype = tf.as_dtype(params['tfrecords_drawing_dtype'])
+
     # get predictions
-    return estimator.predict(input_fn=lambda: iterator_get_next(tfrecord_files, batch_size, 1, shuffle=False))
+    return estimator.predict(input_fn=lambda: iterator_get_next(tfrecord_files, batch_size, epochs=1, shuffle=False,
+                                                                drawing_dtype=drawing_dtype))
