@@ -5,7 +5,8 @@ from importlib import import_module
 import tensorflow as tf
 from quick_draw.models.input import iterator_get_next
 from quick_draw.models.params import load_model_params
-from quick_draw.utils import project_dir
+from quick_draw.utils import project_dir, package_dir
+from tensorflow.python.lib.io import file_io
 
 
 logging.getLogger().setLevel(logging.DEBUG)
@@ -16,8 +17,7 @@ def train(model_name):
     params = load_model_params(model_name)
 
     # read the labels
-    input_dir = params['input_dir']
-    with open(project_dir(os.path.join(input_dir, 'labels.json'))) as f:
+    with open(package_dir(os.path.join('data', 'labels.json'))) as f:
         labels_map = json.load(f)
 
     # create the model directory
@@ -27,14 +27,21 @@ def train(model_name):
     batch_size = params['batch_size']
     logging.info('Batch size: %d' % batch_size)
 
+    input_dir = params['input_dir']
+    if not os.path.isabs(input_dir) and not input_dir.startswith('s3:'):
+        input_dir = project_dir(input_dir)
+
     # get paths to training and evaluation tfrecords
     eval_files_ids = range(params['eval_files'][0], params['eval_files'][1] + 1)
     train_files_ids = range(params['train_files'][0], params['train_files'][1] + 1)
-    eval_files = [project_dir(os.path.join(input_dir, 'file_%d.tfrecords' % i)) for i in eval_files_ids]
-    train_files = [project_dir(os.path.join(input_dir, 'file_%d.tfrecords' % i)) for i in train_files_ids]
+    eval_files = [os.path.join(input_dir, 'file_%d.tfrecords' % i) for i in eval_files_ids]
+    train_files = [os.path.join(input_dir, 'file_%d.tfrecords' % i) for i in train_files_ids]
 
     logging.info('Number of eval files: %d' % len(eval_files))
     logging.info('Number of train files: %d' % len(train_files))
+
+    # test access to training files
+    file_io.stat(train_files[0])
 
     model_fn_params = params
     model_fn_params['num_classes'] = len(labels_map)

@@ -14,5 +14,11 @@ ENV CLOUDSDK_PYTHON="/usr/bin/python2.7"
 # install vim
 RUN apt-get install vim
 
+# install awscli
+RUN pip3 install awscli
+
 ENV PYTHONPATH="/workspace/project"
 ENV QUICK_DRAW_ENV="aws"
+
+# for TensorFlow to read TFRecords from S3
+ENV AWS_REGION=us-east-2

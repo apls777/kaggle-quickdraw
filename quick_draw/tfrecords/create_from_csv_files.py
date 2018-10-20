@@ -12,9 +12,9 @@ import os
 SHUFFLE_SEED = 873277663
 
 
-def create_tfrecords(csv_dir, output_path, num_files, converter: AbstractConverter, shuffle_seed=SHUFFLE_SEED,
+def create_tfrecords(csv_dir, output_dir, num_files, converter: AbstractConverter, shuffle_seed=SHUFFLE_SEED,
                      delete_csv_files=False):
-    os.makedirs(output_path, exist_ok=True)
+    os.makedirs(output_dir, exist_ok=True)
 
     labels = read_json(package_dir('data/labels.json'))
     existing_label_ids = []
@@ -23,40 +23,14 @@ def create_tfrecords(csv_dir, output_path, num_files, converter: AbstractConvert
     for filename in filenames:
         csv_path = os.path.join(csv_dir, filename)
 
-        logging.debug('Creating %d chunks from the "%s" file...' % (num_files, csv_path))
-
         # label
         label = filename.split('.')[0].replace(' ', '_')
         label_id = labels[label]
         existing_label_ids.append(label_id)
         logging.debug('Label: %s' % label)
 
-        # read and shuffle the data
-        with open(csv_path) as f:
-            f.readline()
-            lines = f.readlines()
-
-        Random(shuffle_seed).shuffle(lines)
-
-        # split and save lines by chunks
-        chunk_size = len(lines) // num_files
-        spread_size = len(lines) % num_files
-
-        logging.debug('Number of items: %d' % len(lines))
-        logging.debug('Chunk size: %d' % chunk_size)
-
-        offset = 0
-        for i in range(num_files):
-            s = 1 if spread_size > i else 0
-            chunk_path = os.path.join(output_path, 'tmp_l%d_f%d.csv' % (label_id, i + 1))
-            next_offset = offset + chunk_size + s
-
-            with open(chunk_path, 'w') as f:
-                f.writelines(lines[offset:next_offset])
-
-            offset = next_offset
-
-        assert offset == len(lines)
+        # split CSV file by chunks
+        _split_csv_file(csv_path, output_dir, label_id, num_files, shuffle_seed)
 
         # delete original files
         if delete_csv_files:
@@ -64,31 +38,77 @@ def create_tfrecords(csv_dir, output_path, num_files, converter: AbstractConvert
             logging.debug('File "%s" was deleted' % csv_path)
 
     logging.debug('Creating %d tfrecord files...' % num_files)
-
     for i in range(num_files):
-        # reading i-th chunk of each label
-        lines = []
-        for label_id in existing_label_ids:
-            chunk_path = os.path.join(output_path, 'tmp_l%d_f%d.csv' % (label_id, i + 1))
-
-            with open(chunk_path) as f:
-                chunk_lines = f.readlines()
-
-            lines += chunk_lines
-
-            # remove the chuck file
-            os.unlink(chunk_path)
-
-        # shuffle data
-        Random(shuffle_seed).shuffle(lines)
-
-        # create TFRecords file
-        tfrecords_path = os.path.join(output_path, 'file_%d.tfrecords' % (i + 1))
-        logging.debug('Writing "%s" file with %d records...' % (tfrecords_path, len(lines)))
-        create_tfrecords_from_rows(lines, tfrecords_path, converter, skip_header=False)
+        _convert_temporary_csvs(output_dir, i + 1, existing_label_ids, converter, shuffle_seed)
 
     if len(labels) != len(existing_label_ids):
         logging.warning('CSVs for some labels didn\'t exist. Existing labels IDs: %s.' % str(existing_label_ids))
+
+
+def _split_csv_file(csv_path, output_dir, label_id, num_files, shuffle_seed=SHUFFLE_SEED):
+    logging.debug('Creating %d chunks from the "%s" file...' % (num_files, csv_path))
+
+    # read and shuffle the data
+    with open(csv_path) as f:
+        f.readline()
+        lines = f.readlines()
+
+    Random(shuffle_seed).shuffle(lines)
+
+    # split and save lines by chunks
+    chunk_size = len(lines) // num_files
+    spread_size = len(lines) % num_files
+
+    logging.debug('Number of items: %d' % len(lines))
+    logging.debug('Chunk size: %d' % chunk_size)
+
+    offset = 0
+    for i in range(num_files):
+        s = 1 if spread_size > i else 0
+        chunk_path = os.path.join(output_dir, 'tmp_l%d_f%d.csv' % (label_id, i + 1))
+        next_offset = offset + chunk_size + s
+
+        with open(chunk_path, 'w') as f:
+            f.writelines(lines[offset:next_offset])
+
+        offset = next_offset
+
+    assert offset == len(lines)
+
+
+def _convert_temporary_csvs(temp_csv_dir, file_id, label_ids, converter: AbstractConverter, shuffle_seed=SHUFFLE_SEED):
+    # reading i-th chunk of each label
+    lines = []
+    files_to_remove = []
+    for label_id in label_ids:
+        chunk_path = os.path.join(temp_csv_dir, 'tmp_l%d_f%d.csv' % (label_id, file_id))
+        if not os.path.isfile(chunk_path):
+            logging.warning('Label #%d not found (file #%d)' % (label_id, file_id))
+            continue
+
+        with open(chunk_path) as f:
+            chunk_lines = f.readlines()
+
+        lines += chunk_lines
+
+        # remove the chuck file
+        files_to_remove.append(chunk_path)
+
+    if not lines:
+        logging.error('No data to write')
+        return
+
+    # shuffle data
+    Random(shuffle_seed).shuffle(lines)
+
+    # create TFRecords file
+    tfrecords_path = os.path.join(temp_csv_dir, 'file_%d.tfrecords' % file_id)
+    logging.debug('Writing "%s" file with %d records...' % (tfrecords_path, len(lines)))
+    create_tfrecords_from_rows(lines, tfrecords_path, converter, skip_header=False)
+
+    # remove temporary files
+    for file_path in files_to_remove:
+        os.unlink(file_path)
 
 
 def create_tfrecords_from_rows(csv_rows, tfrecords_output_file, converter: AbstractConverter, skip_header=False):
@@ -170,8 +190,10 @@ if __name__ == '__main__':
     #     create_stroke3_tfrecords(f, project_dir('data/kaggle_simplified/tfrecords/test.tfrecords'))
 
     bitmap_converter = BitmapConverter(image_size=(96, 96), stroke_width=5)
-    print(len(bitmap_converter.convert([]).tobytes()))
-    exit()
+    # create_tfrecords(project_dir('data/kaggle_simplified/csv'), project_dir('data/kaggle_simplified/tfrecords/bitmaps96'),
+    #                  num_files=1000, converter=bitmap_converter)
 
-    create_tfrecords(project_dir('data/kaggle_simplified/csv'), project_dir('data/kaggle_simplified/tfrecords/bitmaps'),
-                     num_files=1, converter=bitmap_converter)
+    output_dir = '/data500/bitmaps_s96w5'
+    labels = read_json(package_dir('data/labels.json'))
+    for file_id in range(900, 999):
+        _convert_temporary_csvs(output_dir, file_id, labels.values(), converter=bitmap_converter)

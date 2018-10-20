@@ -1,11 +1,13 @@
+import logging
 import tensorflow as tf
 
 
 def model_fn(features, labels, mode, params):
     # input Layer
-    image_size = tf.sqrt(tf.cast(tf.shape(features['drawing'])[1], tf.float16))
-    input_layer = tf.reshape(features['drawing'], [-1, image_size, image_size, 1], name='input')
-    input_layer = print_tensor_shape(input_layer)
+    input_shape = [-1, params.tfrecords_drawing_size, params.tfrecords_drawing_size, 1]
+    input_layer = tf.reshape(features['drawing'], input_shape, name='input')
+
+    log_tensor_shape(input_layer)
 
     # CNN layer
     conv1 = tf.layers.conv2d(input_layer, filters=64, kernel_size=(5, 5), padding='same', use_bias=False,
@@ -13,22 +15,25 @@ def model_fn(features, labels, mode, params):
     conv1_bn = tf.layers.batch_normalization(conv1, axis=3, epsilon=1.001e-5, name='conv1_bn')
     conv1_relu = tf.nn.relu(conv1_bn, name='relu1')
     conv1_pool = tf.layers.max_pooling2d(conv1_relu, pool_size=(2, 2), strides=(2, 2), name='pool1')
-    conv1_pool = print_tensor_shape(conv1_pool)
+
+    log_tensor_shape(conv1_pool)
 
     blocks = [6, 12, 24, 16]
 
     dense_block1 = dense_block(conv1_pool, blocks[0], name='conv2')
-    dense_block1 = print_tensor_shape(dense_block1)
+    log_tensor_shape(dense_block1)
+
     transition_block1 = transition_block(dense_block1, 0.5, name='pool2')
-    transition_block1 = print_tensor_shape(transition_block1)
+    log_tensor_shape(transition_block1)
+
     dense_block2 = dense_block(transition_block1, blocks[1], name='conv3')
-    dense_block2 = print_tensor_shape(dense_block2)
+    log_tensor_shape(dense_block2)
 
     dense_block2_bn = tf.layers.batch_normalization(dense_block2, axis=3, epsilon=1.001e-5, name='bn')
     dense_block2_relu = tf.nn.relu(dense_block2_bn, name='relu')
 
     avg_pool = tf.reduce_mean(dense_block2_relu, axis=(1, 2), name='avg_pool')
-    avg_pool = print_tensor_shape(avg_pool)
+    log_tensor_shape(avg_pool)
 
     # dense layer
     # dense = tf.layers.dense(inputs=avg_pool, units=1024, activation=tf.nn.relu)
@@ -36,7 +41,7 @@ def model_fn(features, labels, mode, params):
 
     # logits
     logits = tf.layers.dense(avg_pool, units=params.num_classes, name='logits')
-    logits = print_tensor_shape(logits)
+    log_tensor_shape(logits)
 
     predictions = {
         'probabilities': tf.nn.softmax(logits, name='softmax_tensor'),
@@ -108,5 +113,5 @@ def transition_block(inputs, reduction, name):
     return avg_pool
 
 
-def print_tensor_shape(tensor):
-    return tf.Print(tensor, [tf.shape(tensor)], message='"%s" shape: ' % tensor.name, first_n=1, summarize=10)
+def log_tensor_shape(tensor):
+    return logging.debug('"%s" shape: %s' % (tensor.name, str(tensor.get_shape())))
