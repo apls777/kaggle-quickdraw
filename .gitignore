@@ -5,3 +5,4 @@ dist/
 training/
 /data/
 .ipynb_checkpoints/
+/configs/

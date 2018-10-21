@@ -3,6 +3,7 @@ import json
 import logging
 from random import Random
 from quick_draw.tfrecords.converters.abstract import AbstractConverter
+from quick_draw.tfrecords.converters.bitmap import BitmapConverter
 from quick_draw.tfrecords.converters.stroke3 import Stroke3Converter
 from quick_draw.utils import project_dir, read_json, package_dir
 import tensorflow as tf
@@ -162,7 +163,7 @@ def encode_example(drawing, label_id: int, country_id: int, recognized: int, key
     return example.SerializeToString()
 
 
-def decode_example(serialized_example, drawing_dtype):
+def decode_example(serialized_example):
     """Parses an image and label from the given `serialized_example`."""
     example = tf.parse_single_example(
         serialized_example,
@@ -175,7 +176,7 @@ def decode_example(serialized_example, drawing_dtype):
         })
 
     features = {
-        'drawing': tf.decode_raw(example['drawing'], drawing_dtype),
+        'drawing': example['drawing'],
         'country': tf.cast(example['country'], tf.uint8),
         'recognized': tf.cast(example['recognized'], tf.uint8),
         'key': tf.cast(example['key'], tf.int64),
@@ -189,9 +190,14 @@ def decode_example(serialized_example, drawing_dtype):
 if __name__ == '__main__':
     logging.getLogger().setLevel(logging.DEBUG)
 
-    stroke3_converter = Stroke3Converter()
-    create_tfrecords('/data/kaggle_simplified/csv', '/data500/stroke3',
-                     num_files=1000, converter=stroke3_converter)
+    bitmap_converter = BitmapConverter(image_size=(96, 96), stroke_width=5)
+    create_tfrecords(project_dir('data/kaggle_simplified/test_csv'),
+                     project_dir('data/kaggle_simplified/test_bitmaps96'),
+                     num_files=1, converter=bitmap_converter)
+
+    # stroke3_converter = Stroke3Converter()
+    # create_tfrecords('/data/kaggle_simplified/csv', '/data500/stroke3',
+    #                  num_files=1000, converter=stroke3_converter)
 
     # stroke3_converter = Stroke3Converter()
     # create_tfrecords(project_dir('data/kaggle_simplified/test_csv'), project_dir('data/kaggle_simplified/test_stroke3'),

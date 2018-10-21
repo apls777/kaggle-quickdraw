@@ -1,11 +1,7 @@
-import json
 import logging
 import os
-from importlib import import_module
 import tensorflow as tf
-from quick_draw.models.densenet.input import iterator_get_next
-from quick_draw.models.params import load_model_params
-from quick_draw.utils import project_dir, package_dir
+from quick_draw.utils import project_dir
 from tensorflow.python.lib.io import file_io
 
 
@@ -13,27 +9,32 @@ logging.getLogger().setLevel(logging.DEBUG)
 tf.logging.set_verbosity(tf.logging.INFO)
 
 
-def train(model_name):
-    params = load_model_params(model_name)
+def train(model_fn, input_fn, params):
+    model_dir = params['model_dir']
+    input_dir = params['input_dir']
+    batch_size = params['batch_size']
+    save_checkpoints_secs = params.get('save_checkpoints_secs', 600)
+    save_summary_steps = params.get('save_summary_steps', 500)
+    only_recognized = params.get('only_recognized', False)
+    eval_every_n_iter = params.get('eval_every_n_iter', 10000)
+    eval_files_ids = params['eval_files']
+    train_files_ids = params['train_files']
 
-    # read the labels
-    with open(package_dir(os.path.join('data', 'labels.json'))) as f:
-        labels_map = json.load(f)
+    logging.info('Model parameters: %s' % str(params))
+
+    if not os.path.isabs(model_dir) and not model_dir.startswith('s3:'):
+        model_dir = project_dir(model_dir)
 
     # create the model directory
-    model_dir = project_dir(params['model_dir'])
-    os.makedirs(model_dir, exist_ok=True)
+    if not model_dir.startswith('s3:'):
+        os.makedirs(model_dir, exist_ok=True)
 
-    batch_size = params['batch_size']
-    logging.info('Batch size: %d' % batch_size)
-
-    input_dir = params['input_dir']
     if not os.path.isabs(input_dir) and not input_dir.startswith('s3:'):
         input_dir = project_dir(input_dir)
 
     # get paths to training and evaluation tfrecords
-    eval_files_ids = range(params['eval_files'][0], params['eval_files'][1] + 1)
-    train_files_ids = range(params['train_files'][0], params['train_files'][1] + 1)
+    eval_files_ids = range(eval_files_ids[0], eval_files_ids[1] + 1)
+    train_files_ids = range(train_files_ids[0], train_files_ids[1] + 1)
     eval_files = [os.path.join(input_dir, 'file_%d.tfrecords' % i) for i in eval_files_ids]
     train_files = [os.path.join(input_dir, 'file_%d.tfrecords' % i) for i in train_files_ids]
 
@@ -43,55 +44,41 @@ def train(model_name):
     # test access to training files
     file_io.stat(train_files[0])
 
-    model_fn_params = params
-    model_fn_params['num_classes'] = len(labels_map)
-
     # create an estimator
-    model_fn = getattr(import_module('%s.%s.model' % (__package__, model_name)), 'model_fn')
     estimator = tf.estimator.Estimator(
-            model_fn=model_fn,
-            config=tf.estimator.RunConfig(
-                    model_dir=model_dir,
-                    save_checkpoints_secs=params['save_checkpoints_secs'],
-                    save_summary_steps=params['save_summary_steps'],
-            ),
-            params=tf.contrib.training.HParams(**model_fn_params),
+        model_fn=model_fn,
+        config=tf.estimator.RunConfig(
+            model_dir=model_dir,
+            save_checkpoints_secs=save_checkpoints_secs,
+            save_summary_steps=save_summary_steps,
+        ),
+        params=tf.contrib.training.HParams(**params),
     )
 
     # run evaluation every 10k steps
+    eval_input_fn = lambda: input_fn(eval_files, batch_size, epochs=1, only_recognized=only_recognized)
     evaluator = tf.contrib.estimator.InMemoryEvaluatorHook(estimator,
-                                                           # TODO: abstraction
-                                                           input_fn=lambda: iterator_get_next(eval_files, batch_size,
-                                                                                              epochs=1,
-                                                                                              only_recognized=params['only_recognized']),
-                                                           every_n_iter=params['eval_every_n_iter'])
+                                                           input_fn=eval_input_fn,
+                                                           every_n_iter=eval_every_n_iter)
 
     # train the model
-    estimator.train(input_fn=lambda: iterator_get_next(train_files, batch_size,
-                                                       only_recognized=params['only_recognized']),
-                    hooks=[evaluator])
+    train_input_fn = lambda: input_fn(train_files, batch_size, only_recognized=only_recognized)
+    estimator.train(input_fn=train_input_fn, hooks=[evaluator])
 
 
-def predict(model_name, labels_map_path, tfrecord_files):
-    params = load_model_params(model_name)
+def predict(model_fn, input_fn, params, tfrecord_files):
+    # get model directory
+    model_dir = params['model_dir']
+    if not os.path.isabs(model_dir) and not model_dir.startswith('s3:'):
+        model_dir = project_dir(model_dir)
 
-    # read the labels
-    with open(labels_map_path) as f:
-        labels_map = json.load(f)
-
-    model_dir = project_dir(params['model_dir'])
     batch_size = params['batch_size']
 
-    model_fn_params = params
-    model_fn_params['num_classes'] = len(labels_map)
-
     # create an estimator
-    model_fn = getattr(import_module('%s.%s.model' % (__package__, model_name)), 'model_fn')
     estimator = tf.estimator.Estimator(model_fn=model_fn, model_dir=model_dir,
-                                       params=tf.contrib.training.HParams(**model_fn_params))
-
-    # dtype to decode TFRecords
-    drawing_dtype = tf.as_dtype(params['tfrecords_drawing_dtype'])
+                                       params=tf.contrib.training.HParams(**params))
 
     # get predictions
-    return estimator.predict(input_fn=lambda: iterator_get_next(tfrecord_files, batch_size, epochs=1, shuffle=False))
+    prediction_input_fn = lambda: input_fn(tfrecord_files, batch_size, epochs=1, shuffle=False)
+
+    return estimator.predict(input_fn=prediction_input_fn)

@@ -18,29 +18,35 @@ def model_fn(features, labels, mode, params):
 
     log_tensor_shape(conv1_pool)
 
-    blocks = [6, 12, 24, 16]
+    blocks = params.blocks
 
-    dense_block1 = dense_block(conv1_pool, blocks[0], name='conv2')
-    log_tensor_shape(dense_block1)
+    current_layer = conv1_pool
+    for i, block in enumerate(blocks):
+        # add convolution layers
+        current_layer = dense_block(current_layer, block, name='conv%d' % (i + 2))
+        log_tensor_shape(current_layer)
 
-    transition_block1 = transition_block(dense_block1, 0.5, name='pool2')
-    log_tensor_shape(transition_block1)
+        if i + 1 < len(blocks):
+            # add pooling layer
+            current_layer = transition_block(current_layer, 0.5, name='pool%d' % (i + 2))
+            log_tensor_shape(current_layer)
 
-    dense_block2 = dense_block(transition_block1, blocks[1], name='conv3')
-    log_tensor_shape(dense_block2)
+    conv_layers_bn = tf.layers.batch_normalization(current_layer, axis=3, epsilon=1.001e-5, name='bn')
+    conv_layers_relu = tf.nn.relu(conv_layers_bn, name='relu')
 
-    dense_block2_bn = tf.layers.batch_normalization(dense_block2, axis=3, epsilon=1.001e-5, name='bn')
-    dense_block2_relu = tf.nn.relu(dense_block2_bn, name='relu')
-
-    avg_pool = tf.reduce_mean(dense_block2_relu, axis=(1, 2), name='avg_pool')
+    avg_pool = tf.reduce_mean(conv_layers_relu, axis=(1, 2), name='avg_pool')
     log_tensor_shape(avg_pool)
 
     # dense layer
-    # dense = tf.layers.dense(inputs=avg_pool, units=1024, activation=tf.nn.relu)
-    # dropout = tf.layers.dropout(inputs=dense, rate=0.4, training=(mode == tf.estimator.ModeKeys.TRAIN))
+    current_layer = avg_pool
+    if params.dense_layer:
+        dense = tf.layers.dense(inputs=current_layer, units=1024, activation=tf.nn.relu, name='dense1')
+        current_layer = tf.layers.dropout(inputs=dense, rate=0.2, training=(mode == tf.estimator.ModeKeys.TRAIN),
+                                    name='dense1_dropout')
+        log_tensor_shape(dense)
 
     # logits
-    logits = tf.layers.dense(avg_pool, units=params.num_classes, name='logits')
+    logits = tf.layers.dense(current_layer, units=params.num_classes, name='logits')
     log_tensor_shape(logits)
 
     predictions = {

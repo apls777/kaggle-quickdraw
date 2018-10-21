@@ -11,14 +11,16 @@ RUN echo "deb http://packages.cloud.google.com/apt cloud-sdk-`lsb_release -c -s`
 
 ENV CLOUDSDK_PYTHON="/usr/bin/python2.7"
 
-# install vim
-RUN apt-get install vim
+# install vim and tzdata
+RUN apt-get -y install vim tzdata
+
+# change timeone
+ENV TZ="Europe/Dublin"
 
 # install awscli
 RUN pip3 install awscli
 
 ENV PYTHONPATH="/workspace/project"
-ENV QUICK_DRAW_ENV="aws"
 
 # for TensorFlow to read TFRecords from S3
 ENV AWS_REGION=us-east-2
