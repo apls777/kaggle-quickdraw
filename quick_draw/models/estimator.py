@@ -3,7 +3,7 @@ import logging
 import os
 from importlib import import_module
 import tensorflow as tf
-from quick_draw.models.input import iterator_get_next
+from quick_draw.models.densenet.input import iterator_get_next
 from quick_draw.models.params import load_model_params
 from quick_draw.utils import project_dir, package_dir
 from tensorflow.python.lib.io import file_io
@@ -58,21 +58,17 @@ def train(model_name):
             params=tf.contrib.training.HParams(**model_fn_params),
     )
 
-    # dtype to decode TFRecords
-    drawing_dtype = tf.as_dtype(params['tfrecords_drawing_dtype'])
-
     # run evaluation every 10k steps
     evaluator = tf.contrib.estimator.InMemoryEvaluatorHook(estimator,
+                                                           # TODO: abstraction
                                                            input_fn=lambda: iterator_get_next(eval_files, batch_size,
                                                                                               epochs=1,
-                                                                                              only_recognized=params['only_recognized'],
-                                                                                              drawing_dtype=drawing_dtype),
+                                                                                              only_recognized=params['only_recognized']),
                                                            every_n_iter=params['eval_every_n_iter'])
 
     # train the model
     estimator.train(input_fn=lambda: iterator_get_next(train_files, batch_size,
-                                                       only_recognized=params['only_recognized'],
-                                                       drawing_dtype=drawing_dtype),
+                                                       only_recognized=params['only_recognized']),
                     hooks=[evaluator])
 
 
@@ -98,5 +94,4 @@ def predict(model_name, labels_map_path, tfrecord_files):
     drawing_dtype = tf.as_dtype(params['tfrecords_drawing_dtype'])
 
     # get predictions
-    return estimator.predict(input_fn=lambda: iterator_get_next(tfrecord_files, batch_size, epochs=1, shuffle=False,
-                                                                drawing_dtype=drawing_dtype))
+    return estimator.predict(input_fn=lambda: iterator_get_next(tfrecord_files, batch_size, epochs=1, shuffle=False))

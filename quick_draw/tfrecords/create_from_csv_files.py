@@ -3,7 +3,7 @@ import json
 import logging
 from random import Random
 from quick_draw.tfrecords.converters.abstract import AbstractConverter
-from quick_draw.tfrecords.converters.bitmap import BitmapConverter
+from quick_draw.tfrecords.converters.stroke3 import Stroke3Converter
 from quick_draw.utils import project_dir, read_json, package_dir
 import tensorflow as tf
 import os
@@ -19,6 +19,8 @@ def create_tfrecords(csv_dir, output_dir, num_files, converter: AbstractConverte
     labels = read_json(package_dir('data/labels.json'))
     existing_label_ids = []
 
+    # TODO: returns a list in arbitrary order, result should remain persistent
+    # saved the order that was used for TFRecords to "listdir.txt" file
     filenames = os.listdir(csv_dir)
     for filename in filenames:
         csv_path = os.path.join(csv_dir, filename)
@@ -42,7 +44,8 @@ def create_tfrecords(csv_dir, output_dir, num_files, converter: AbstractConverte
         _convert_temporary_csvs(output_dir, i + 1, existing_label_ids, converter, shuffle_seed)
 
     if len(labels) != len(existing_label_ids):
-        logging.warning('CSVs for some labels didn\'t exist. Existing labels IDs: %s.' % str(existing_label_ids))
+        missing_label_ids = set(labels.values()) - set(existing_label_ids)
+        logging.warning('CSVs for some labels didn\'t exist. Missing label IDs: %s.' % str(missing_label_ids))
 
 
 def _split_csv_file(csv_path, output_dir, label_id, num_files, shuffle_seed=SHUFFLE_SEED):
@@ -175,7 +178,7 @@ def decode_example(serialized_example, drawing_dtype):
         'drawing': tf.decode_raw(example['drawing'], drawing_dtype),
         'country': tf.cast(example['country'], tf.uint8),
         'recognized': tf.cast(example['recognized'], tf.uint8),
-        'key': tf.cast(example['key'], tf.uint64),
+        'key': tf.cast(example['key'], tf.int64),
     }
 
     label = tf.cast(example['label'], tf.int64)
@@ -186,14 +189,16 @@ def decode_example(serialized_example, drawing_dtype):
 if __name__ == '__main__':
     logging.getLogger().setLevel(logging.DEBUG)
 
-    # with open(project_dir('data/kaggle_simplified/csv/airplane.csv')) as f:
-    #     create_stroke3_tfrecords(f, project_dir('data/kaggle_simplified/tfrecords/test.tfrecords'))
+    stroke3_converter = Stroke3Converter()
+    create_tfrecords('/data/kaggle_simplified/csv', '/data500/stroke3',
+                     num_files=1000, converter=stroke3_converter)
 
-    bitmap_converter = BitmapConverter(image_size=(96, 96), stroke_width=5)
-    # create_tfrecords(project_dir('data/kaggle_simplified/csv'), project_dir('data/kaggle_simplified/tfrecords/bitmaps96'),
-    #                  num_files=1000, converter=bitmap_converter)
+    # stroke3_converter = Stroke3Converter()
+    # create_tfrecords(project_dir('data/kaggle_simplified/test_csv'), project_dir('data/kaggle_simplified/test_stroke3'),
+    #                  num_files=1, converter=stroke3_converter)
 
-    output_dir = '/data500/bitmaps_s96w5'
-    labels = read_json(package_dir('data/labels.json'))
-    for file_id in range(900, 999):
-        _convert_temporary_csvs(output_dir, file_id, labels.values(), converter=bitmap_converter)
+    # bitmap_converter = BitmapConverter(image_size=(96, 96), stroke_width=5)
+    # output_dir = '/data500/bitmaps_s96w5'
+    # labels = read_json(package_dir('data/labels.json'))
+    # for file_id in range(900, 999):
+    #     _convert_temporary_csvs(output_dir, file_id, labels.values(), converter=bitmap_converter)

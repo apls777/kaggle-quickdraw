@@ -9,13 +9,13 @@ def _normalize(features, label):
     return features, label
 
 
-def iterator_get_next(file_paths, batch_size, drawing_dtype, only_recognized=False, epochs=None, shuffle=True):
+def iterator_get_next(file_paths, batch_size, only_recognized=False, epochs=None, shuffle=True):
     if shuffle:
         file_paths = list(file_paths)
         random.shuffle(file_paths)
 
     dataset = tf.data.TFRecordDataset(file_paths)
-    dataset = dataset.map(lambda x: decode_example(x, drawing_dtype))
+    dataset = dataset.map(lambda x: decode_example(x, tf.uint8))
 
     if only_recognized:
         dataset = dataset.filter(lambda features, label: tf.cast(features['recognized'], tf.bool))

@@ -1,6 +1,5 @@
 {
   "input_dir": "data/kaggle_simplified/tfrecords/bitmaps",
-  "tfrecords_drawing_dtype": "uint8",
   "tfrecords_drawing_size": 96,
   "only_recognized": false,
   "model_dir": "training/densenet_b2s96w5",
