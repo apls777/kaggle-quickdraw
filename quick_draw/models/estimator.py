@@ -15,10 +15,10 @@ def train(model_fn, input_fn, params):
     batch_size = params['batch_size']
     save_checkpoints_secs = params.get('save_checkpoints_secs', 600)
     save_summary_steps = params.get('save_summary_steps', 500)
-    only_recognized = params.get('only_recognized', False)
-    eval_every_n_iter = params.get('eval_every_n_iter', 10000)
+    eval_every_secs = params.get('eval_every_secs', 600)
     eval_files_ids = params['eval_files']
     train_files_ids = params['train_files']
+    only_recognized = params.get('only_recognized', False)
 
     logging.info('Model parameters: %s' % str(params))
 
@@ -55,15 +55,13 @@ def train(model_fn, input_fn, params):
         params=tf.contrib.training.HParams(**params),
     )
 
-    # run evaluation every 10k steps
-    eval_input_fn = lambda: input_fn(eval_files, batch_size, epochs=1, only_recognized=only_recognized)
-    evaluator = tf.contrib.estimator.InMemoryEvaluatorHook(estimator,
-                                                           input_fn=eval_input_fn,
-                                                           every_n_iter=eval_every_n_iter)
-
-    # train the model
     train_input_fn = lambda: input_fn(train_files, batch_size, only_recognized=only_recognized)
-    estimator.train(input_fn=train_input_fn, hooks=[evaluator])
+    eval_input_fn = lambda: input_fn(eval_files, batch_size, epochs=1, only_recognized=only_recognized)
+
+    train_spec = tf.estimator.TrainSpec(input_fn=train_input_fn)
+    eval_spec = tf.estimator.EvalSpec(input_fn=eval_input_fn, start_delay_secs=eval_every_secs)
+
+    tf.estimator.train_and_evaluate(estimator, train_spec, eval_spec)
 
 
 def predict(model_fn, input_fn, params, tfrecord_files):
