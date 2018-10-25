@@ -8,6 +8,7 @@ from quick_draw.tfrecords.converters.stroke3 import Stroke3Converter
 from quick_draw.utils import project_dir, read_json, package_dir
 import tensorflow as tf
 import os
+import io
 
 
 SHUFFLE_SEED = 873277663
@@ -127,6 +128,7 @@ def create_tfrecords_from_rows(csv_rows, tfrecords_output_file, converter: Abstr
         i = 0
         for country_code, strokes_json, key_id, recognized, _, label in reader:
             assert recognized in ['True', 'False']
+            country_code = country_code if country_code in country_codes else 'ZZ'
 
             country_id = country_codes[country_code]
             label_id = labels[label.replace(' ', '_')]
@@ -142,10 +144,28 @@ def create_tfrecords_from_rows(csv_rows, tfrecords_output_file, converter: Abstr
             if i % 1000 == 0:
                 logging.debug(i)
 
+        logging.debug(i)
 
-def create_tf_records_from_file(file_path, tfrecords_output_file, converter: AbstractConverter, limit=0):
+
+def create_tf_records_from_file(file_path, tfrecords_output_file, converter: AbstractConverter):
     with open(file_path) as f:
         return create_tfrecords_from_rows(f, tfrecords_output_file, converter, skip_header=True)
+
+
+def create_tf_records_for_submission(file_path, tfrecords_output_file, converter: AbstractConverter):
+    tmp_csv = io.StringIO()
+    writer = csv.writer(tmp_csv)
+
+    with open(file_path) as f:
+        reader = csv.reader(f)
+        next(reader)
+
+        for key_id, country_code, strokes_json in reader:
+            writer.writerow([country_code, strokes_json, key_id, 'False', '', 'fence'])
+
+    tmp_csv.seek(0)
+
+    return create_tfrecords_from_rows(tmp_csv, tfrecords_output_file, converter, skip_header=False)
 
 
 def encode_example(drawing, label_id: int, country_id: int, recognized: int, key_id: int):
@@ -190,20 +210,17 @@ def decode_example(serialized_example):
 if __name__ == '__main__':
     logging.getLogger().setLevel(logging.DEBUG)
 
-    bitmap_converter = BitmapConverter(image_size=(96, 96), stroke_width=5)
-    create_tfrecords(project_dir('data/kaggle_simplified/test_csv'),
-                     project_dir('data/kaggle_simplified/test_bitmaps96'),
-                     num_files=1, converter=bitmap_converter)
-
-    # stroke3_converter = Stroke3Converter()
-    # create_tfrecords('/data/kaggle_simplified/csv', '/data500/stroke3',
-    #                  num_files=1000, converter=stroke3_converter)
-
-    # stroke3_converter = Stroke3Converter()
-    # create_tfrecords(project_dir('data/kaggle_simplified/test_csv'), project_dir('data/kaggle_simplified/test_stroke3'),
-    #                  num_files=1, converter=stroke3_converter)
-
     # bitmap_converter = BitmapConverter(image_size=(96, 96), stroke_width=5)
+    stroke3_converter = Stroke3Converter()
+
+    # create_tfrecords(project_dir('data/kaggle_simplified/test_csv'),
+    #                  project_dir('data/kaggle_simplified/test_bitmaps96'),
+    #                  num_files=1, converter=bitmap_converter)
+
+    create_tf_records_for_submission(project_dir('data/kaggle_submission/test_simplified.csv'),
+                                     project_dir('data/kaggle_submission/test_simplified_stroke3.tfrecords'),
+                                     converter=stroke3_converter)
+
     # output_dir = '/data500/bitmaps_s96w5'
     # labels = read_json(package_dir('data/labels.json'))
     # for file_id in range(900, 999):

@@ -9,12 +9,14 @@ def main(argv: list):
     if len(argv) < 2:
         raise ValueError('Path to configuration file is not provided')
 
-    model_fn, input_fn, config = import_model(argv[1])
+    config_path = argv[1]
+    file_path = argv[2]
+    output_path = project_dir(argv[3])
 
-    # file_path = project_dir('data/evaluation/file_1.tfrecords')
-    # output_path = project_dir('data/evaluation/predictions.pickle')
-    file_path = project_dir('data/submission/test_simplified.tfrecords')
-    output_path = project_dir('data/submission/predictions.pickle')
+    model_fn, input_fn, config = import_model(config_path)
+
+    # file_path = 's3://quickdraw-datasets-us-east-2/stroke3/file_1.tfrecords'
+    # output_path = project_dir('data/eval_1_tf_rnn.pickle')
 
     predictor = predict(model_fn, input_fn, config, [file_path])
 

@@ -37,6 +37,26 @@ def model_fn(features, labels, mode, params):
     avg_pool = tf.reduce_mean(conv_layers_relu, axis=(1, 2), name='avg_pool')
     log_tensor_shape(avg_pool)
 
+    # assignment_map = {}
+    # for v in tf.trainable_variables():
+    #     exclude_prefixes = [
+    #         'pool3_',
+    #         'conv4_',
+    #         'pool4_',
+    #         'conv5_',
+    #         'bn/',
+    #     ]
+    #     exclude = False
+    #     for prefix in exclude_prefixes:
+    #         if v.name.startswith(prefix):
+    #             exclude = True
+    #             break
+    #
+    #     if not exclude:
+    #         assignment_map[v.name[:-2]] = v
+    #
+    # tf.train.init_from_checkpoint(project_dir('training/densenet_b2s96w5_r'), assignment_map)
+
     # dense layer
     current_layer = avg_pool
     if params.dense_layer:

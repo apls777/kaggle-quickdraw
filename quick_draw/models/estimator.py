@@ -56,7 +56,7 @@ def train(model_fn, input_fn, params):
     )
 
     train_input_fn = lambda: input_fn(train_files, batch_size, only_recognized=only_recognized)
-    eval_input_fn = lambda: input_fn(eval_files, batch_size, epochs=1, only_recognized=only_recognized)
+    eval_input_fn = lambda: input_fn(eval_files, batch_size, epochs=1, only_recognized=False)
 
     train_spec = tf.estimator.TrainSpec(input_fn=train_input_fn)
     eval_spec = tf.estimator.EvalSpec(input_fn=eval_input_fn, start_delay_secs=eval_every_secs)
