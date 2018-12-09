@@ -8,20 +8,27 @@ project:
       - '*/__pycache__/*'
       - data/*
       - training/*
+
 instance:
   region: us-east-2
   instanceType: p2.xlarge
   volumes:
-    - name: QuickDraw
-      directory: /workspace
-      size: 55
+    - name: QuickDrawDocker
+      directory: /docker_data
+      size: 5
       deletionPolicy: retain
   docker:
     file: docker/Dockerfile
-    dataRoot: /workspace/docker
+    dataRoot: /docker_data
   ports: [6006, 8888]
+
 scripts:
+  train: |
+    python3 quick_draw/scripts/train.py configs/densenet_seq/b4f64d1024.json 2>&1 | grep -v "Connection has been released"
+  predict: |
+    python3 quick_draw/scripts/predict.py configs/tf_rnn/cl3rl3_cudnn_r.json
   tensorboard: |
-    tensorboard --logdir /workspace/project/training
+    tensorboard --logdir s3://quick-draw-models-us-east-2/models/tf_rnn 2>&1 \
+      | grep -vE "aws_logging|InvalidRange|The requested range is not satisfiable"
   jupyter: |
     jupyter notebook --allow-root --notebook-dir=/workspace/project
