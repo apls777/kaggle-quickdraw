@@ -51,9 +51,7 @@ def _add_conv_layers(inputs, lengths, num_conv, conv_len, batch_norm, dropout, i
     for i in range(len(num_conv)):
         convolved_input = convolved
         if batch_norm:
-            convolved_input = tf.layers.batch_normalization(
-                convolved_input,
-                training=is_training)
+            convolved_input = tf.layers.batch_normalization(convolved_input, training=is_training)
 
         # add dropout layer if enabled and not first convolution layer.
         if i > 0 and dropout:
@@ -62,7 +60,7 @@ def _add_conv_layers(inputs, lengths, num_conv, conv_len, batch_norm, dropout, i
         convolved = tf.layers.conv1d(convolved_input,
                                      filters=num_conv[i],
                                      kernel_size=conv_len[i],
-                                     activation=None,
+                                     activation='relu',
                                      strides=1,
                                      padding='same',
                                      name='conv1d_%d' % i)
